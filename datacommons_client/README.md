@@ -28,14 +28,22 @@ observations = client.observation.fetch(
     entity_dcids=["country/USA"],
 )
 
-# SDMX 3.0 Data query (returns SDMX-CSV by default)
+# SDMX 3.0 Data query (returns SDMX-CSV string, or use fetch_data_as_dataframe for a Pandas DataFrame)
 csv_data = client.sdmx.fetch_data(
     variable="Count_Person",
     constraints={"observationAbout": "country/USA"},
 )
+df = client.sdmx.fetch_data_as_dataframe(
+    variable="Count_Person",
+    constraints={"observationAbout": "country/USA"},
+)
 
-# SDMX 3.0 Availability query (returns parsed SDMX-JSON)
+# SDMX 3.0 Availability query (returns parsed SDMX-JSON, or use fetch_available_values for {component_id: [values]})
 availability = client.sdmx.fetch_availability(
+    component_id="provenance",
+    variable="Count_Person",
+)
+available_values = client.sdmx.fetch_available_values(
     component_id="provenance",
     variable="Count_Person",
 )

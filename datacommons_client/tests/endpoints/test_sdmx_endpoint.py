@@ -239,6 +239,54 @@ class TestSdmxEndpoint:
 
     assert endpoint.get_availability("provenance", "V") == "not json"
 
+  def test_fetch_available_values_unpacks_cube_regions(self, public_api,
+                                                       make_response,
+                                                       make_session):
+    availability_payload = {
+        "data": {
+            "dataConstraints": [{
+                "id":
+                    "DF_OBS_AVAILABILITY",
+                "cubeRegions": [{
+                    "include":
+                        True,
+                    "keyValues": [
+                        {
+                            "id": "provenance",
+                            "include": True,
+                            "values": ["dc/base/CensusPEP", "dc/base/WHO"],
+                        },
+                        {
+                            "id": "TIME_PERIOD",
+                            "include": True,
+                            "values": ["2020", "2021"],
+                        },
+                    ],
+                }],
+            }]
+        }
+    }
+    session = make_session(
+        make_response(json_body=availability_payload,
+                      content_type="application/json"))
+    endpoint = SdmxEndpoint(public_api, session=session)
+
+    values = endpoint.fetch_available_values("*", "Count_Person")
+    assert values == {
+        "provenance": ["dc/base/CensusPEP", "dc/base/WHO"],
+        "TIME_PERIOD": ["2020", "2021"],
+    }
+
+  def test_fetch_data_as_dataframe(self, public_api, make_response,
+                                   make_session):
+    session = make_session(make_response(text=_CSV))
+    endpoint = SdmxEndpoint(public_api, session=session)
+
+    df = endpoint.fetch_data_as_dataframe("Count_Person")
+    assert list(df.columns) == ["STRUCTURE", "OBS_VALUE"]
+    assert len(df) == 1
+    assert df.iloc[0]["OBS_VALUE"] == 100
+
   def test_instance_api_prefers_the_core_api_root(self, instance_api,
                                                   make_response, make_session):
     session = make_session(make_response(text=_CSV))

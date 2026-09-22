@@ -16,6 +16,7 @@
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from http import HTTPStatus
+import io
 from typing import Any, Dict, Optional
 
 import requests
@@ -23,8 +24,14 @@ import requests
 from datacommons_client.endpoints.base import API
 from datacommons_client.endpoints.base import Endpoint
 from datacommons_client.utils.context import _API_KEY_CONTEXT_VAR
+from datacommons_client.utils.decorators import requires_pandas
 from datacommons_client.utils.error_handling import SdmxAPIError
 from datacommons_client.utils.error_handling import SdmxClientError
+
+try:
+  import pandas as pd
+except ImportError:
+  pd = None
 
 # The SDMX context, agency, resource and version are fixed for Data Commons;
 # the key is always the `*` wildcard.
@@ -94,6 +101,39 @@ def build_query_params(
 
   params["c[variableMeasured]"] = variable.strip()
   return params
+
+
+def extract_availability_values(
+    payload: Mapping[str, Any],) -> dict[str, list[str]]:
+  """Extracts `{component_id: [values]}` from an SDMX-JSON Availability response.
+
+  Unpacks the nested `data.dataConstraints[*].cubeRegions[*].keyValues[*]`
+  structure returned by the SDMX 3.0 Availability endpoint into a flat mapping
+  of component IDs to their available string values.
+  """
+  result: dict[str, list[str]] = {}
+  data = payload.get("data") if isinstance(payload, Mapping) else None
+  if not isinstance(data, Mapping):
+    return result
+
+  for constraint in data.get("dataConstraints") or ():
+    if not isinstance(constraint, Mapping):
+      continue
+    for region in constraint.get("cubeRegions") or ():
+      if not isinstance(region, Mapping) or not region.get("include", True):
+        continue
+      for item in region.get("keyValues") or region.get("components") or ():
+        if not isinstance(item, Mapping) or not item.get("include", True):
+          continue
+        comp_id = item.get("id")
+        if not isinstance(comp_id, str) or not comp_id:
+          continue
+        values_bucket = result.setdefault(comp_id, [])
+        for val in item.get("values") or ():
+          v = val.get("value") if isinstance(val, Mapping) else val
+          if v is not None and str(v) not in values_bucket:
+            values_bucket.append(str(v))
+  return result
 
 
 def _resolve_sdmx_host_and_layout(
@@ -218,6 +258,40 @@ class SdmxEndpoint(Endpoint):
 
   get_data = fetch_data
 
+  @requires_pandas
+  def fetch_data_as_dataframe(
+      self,
+      variable: str,
+      constraints: Optional[Mapping[str, str | Sequence[str]]] = None,
+      *,
+      log: bool = True,
+      multi_entity: bool = True,
+      accept: Optional[str] = None,
+  ) -> "pd.DataFrame":
+    """Fetches statistical observations via SDMX-CSV and returns a pandas DataFrame.
+
+    Args:
+        variable: The statistical variable measured (e.g. `Count_Person`).
+        constraints: Dimension and attribute filters to apply.
+        log: Request server-side SDMX execution logs (`X-Log-SDMX` header).
+        multi_entity: Query across multi-entity schemas (`X-Use-Multi-Entity-Schema` header).
+        accept: Optional `Accept` header override.
+
+    Returns:
+        A `pandas.DataFrame` containing the SDMX-CSV rows and columns.
+    """
+    csv_text = self.fetch_data(
+        variable,
+        constraints,
+        response_format="csv",
+        log=log,
+        multi_entity=multi_entity,
+        accept=accept,
+    )
+    if not csv_text or not csv_text.strip():
+      return pd.DataFrame()
+    return pd.read_csv(io.StringIO(csv_text))
+
   def fetch_availability(
       self,
       component_id: str,
@@ -260,6 +334,44 @@ class SdmxEndpoint(Endpoint):
       return response.text
 
   get_availability = fetch_availability
+
+  def fetch_available_values(
+      self,
+      component_id: str,
+      variable: str,
+      constraints: Optional[Mapping[str, str | Sequence[str]]] = None,
+      *,
+      log: bool = True,
+      multi_entity: bool = True,
+      accept: Optional[str] = None,
+  ) -> dict[str, list[str]]:
+    """Queries available dimension/attribute values and returns `{component_id: [values]}`.
+
+    Convenience wrapper around `fetch_availability()` that unpacks the nested
+    SDMX-JSON `dataConstraints[*].cubeRegions[*].keyValues[*]` payload.
+
+    Args:
+        component_id: The component to inspect (e.g. `provenance`, `unit`, or `*`).
+        variable: The statistical variable measured.
+        constraints: Dimension and attribute filters to apply.
+        log: Request server-side SDMX execution logs (`X-Log-SDMX` header).
+        multi_entity: Query across multi-entity schemas (`X-Use-Multi-Entity-Schema` header).
+        accept: Optional `Accept` header override.
+
+    Returns:
+        A dictionary mapping each returned component ID to its list of available values.
+    """
+    payload = self.fetch_availability(
+        component_id,
+        variable,
+        constraints,
+        log=log,
+        multi_entity=multi_entity,
+        accept=accept,
+    )
+    if not isinstance(payload, Mapping):
+      return {}
+    return extract_availability_values(payload)
 
   def _get(
       self,
