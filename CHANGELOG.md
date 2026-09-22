@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.0
+
+**Date** - 09/21/2026
+
+**Release Tag** - [v2.2.0](https://github.com/datacommonsorg/api-python/releases/tag/v2.2.0)
+
+**Release Status** - Current head of branch [`master`](https://github.com/datacommonsorg/api-python/tree/master)
+
+This update adds an `SdmxEndpoint` (`client.sdmx`) for querying the Data Commons SDMX 3.0 `data` and `availability` REST APIs, and adds support for custom HTTP headers (`headers`) and optional instance validation skipping (`validate_instance=False`) on `DataCommonsClient` and `API`.
+
 ## 2.1.6
 
 **Date** - 01/28/2026
