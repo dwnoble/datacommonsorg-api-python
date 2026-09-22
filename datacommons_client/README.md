@@ -41,5 +41,27 @@ availability = client.sdmx.fetch_availability(
 )
 ```
 
+## Connecting to a Private Data Commons Platform Instance
+
+To query a private [Data Commons Platform](https://github.com/datacommonsorg/datacommons) instance protected by IAM (such as an authenticated Cloud Run service), pass the instance URL along with your `Authorization` header and set `validate_instance=False`:
+
+```python
+from datacommons_client import DataCommonsClient
+
+client = DataCommonsClient(
+    url="https://your-dcp-service-url.a.run.app/core/api/v2",
+    headers={"Authorization": f"Bearer {id_token}"},
+    validate_instance=False,
+)
+
+# Query V2 or SDMX 3.0 endpoints on the private instance
+node_data = client.node.fetch(node_dcids="FinancialTrade", expression="->name")
+sdmx_csv = client.sdmx.fetch_data(
+    variable="FinancialTrade",
+    constraints={"sourceCountry": "country/FRA"},
+)
+```
+
 For more detail on getting started with the API, please visit <https://docs.datacommons.org/api/python/v2/>.
+
 
