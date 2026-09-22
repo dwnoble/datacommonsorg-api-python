@@ -127,6 +127,10 @@ class TestBuildQueryParams:
     params = build_query_params("V", {"provenance": ["a", "b"]})
     assert params["c[provenance]"] == "a,b"
 
+  def test_joins_set_values_with_commas(self):
+    params = build_query_params("V", {"provenance": {"b", "a"}})
+    assert params["c[provenance]"] == "a,b"
+
   def test_ignores_empty_or_none_constraints(self):
     params = build_query_params("V", {"unit": [], "scalingFactor": None})
     assert params == {"c[variableMeasured]": "V"}

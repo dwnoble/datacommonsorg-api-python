@@ -23,7 +23,7 @@ def test_api_initialization_default(mock_check_instance, mock_resolve_instance):
       "Content-Type": "application/json",
       "x-surface": "clientlib-python"
   }
-  mock_resolve_instance.assert_called_once_with("datacommons.org")
+  mock_resolve_instance.assert_called_once_with("datacommons.org", api_key=None)
 
 
 @patch(
@@ -55,7 +55,8 @@ def test_api_initialization_with_dc_instance(mock_resolve_instance_url):
       "Content-Type": "application/json",
       "x-surface": "clientlib-python"
   }
-  mock_resolve_instance_url.assert_called_once_with("custom-instance")
+  mock_resolve_instance_url.assert_called_once_with("custom-instance",
+                                                    api_key=None)
 
 
 @patch(

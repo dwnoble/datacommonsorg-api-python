@@ -84,8 +84,8 @@ def build_query_params(
       continue
     if isinstance(value, str):
       values = [value]
-    elif isinstance(value, Sequence):
-      values = list(value)
+    elif isinstance(value, (Sequence, set)):
+      values = sorted(value) if isinstance(value, set) else list(value)
     else:
       values = [str(value)]
     cleaned = [str(v).strip() for v in values if str(v).strip()]

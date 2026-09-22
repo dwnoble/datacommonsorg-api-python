@@ -74,7 +74,7 @@ class API:
                                              api_key=api_key,
                                              headers=dict(headers))
       else:
-        self.base_url = resolve_instance_url(dc_instance)
+        self.base_url = resolve_instance_url(dc_instance, api_key=api_key)
 
     self.headers = self.build_headers(surface_header_value=surface_header_value,
                                       api_key=api_key,
